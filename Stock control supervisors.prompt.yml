@@ -55,7 +55,7 @@ messages:
 
       print(response.choices[0].message.content)
 
-model: openai/gpt-4o
+model: deepseek/deepseek-r1
 responseFormat: json_schema
 jsonSchema: |-
   {
@@ -80,3 +80,163 @@ jsonSchema: |-
       ]
     }
   }
+testData: []
+evaluators:
+  - name: Romeo Rosete
+    string:
+      strict: true
+      contains: >-
+        <think>
+
+        Okay, let's take a look at this code. The user is trying to use the
+        Azure AI SDK to get a chat completion response. The code imports
+        necessary modules like ChatCompletionsClient, SystemMessage,
+        UserMessage, and AzureKeyCredential. Then, they set the endpoint, model,
+        and token from an environment variable.
+
+
+        Wait, the endpoint is "https://models.github.ai/inference". That doesn't
+        look like a standard Azure endpoint. Usually, Azure Cognitive Services
+        endpoints are something like "your-resource-name.openai.azure.com".
+        Maybe this is a custom or specific endpoint they're using, but I'm not
+        sure if that's correct. Also, the model is specified as
+        "openai/gpt-4.1". Azure typically uses deployment names rather than the
+        model names directly. So maybe the model parameter here should be the
+        deployment name they set up in Azure, not the model identifier like
+        that.
+
+
+        The token is retrieved from the environment variable GITHUB_TOKEN. Hmm,
+        GitHub tokens are usually for accessing GitHub APIs, not Azure services.
+        That's a red flag. Azure services usually require an API key or Azure
+        Active Directory credentials. Using a GitHub token here might be
+        incorrect. The user might have mixed up the credentials. They should
+        probably be using an Azure AI key instead, which is a different token.
+
+
+        Looking at the client initialization: they're using AzureKeyCredential
+        with the token. If the endpoint is expecting an Azure AI key, then
+        that's correct, but if the token is a GitHub token, that's not going to
+        work. So the authentication part is likely wrong here.
+
+
+        In the client.complete call, they pass messages with a system and user
+        message. The parameters temperature and top_p are set to 1.0, which is
+        valid. The model is specified again, but maybe in Azure's setup, the
+        model is not passed here because the deployment is part of the endpoint.
+        Or perhaps the client is expecting a deployment ID instead of the model
+        name.
+
+
+        Possible issues:
+
+
+        1. Incorrect endpoint URL. If they're using Azure, the endpoint should
+        be their specific Azure resource endpoint.
+
+        2. Wrong credentials. Using GITHUB_TOKEN instead of an Azure AI API key.
+
+        3. Model parameter might need to be a deployment name as set up in
+        Azure, not the model identifier.
+
+        4. Possible SDK version compatibility issues. Maybe the way they're
+        using the client is outdated.
+
+
+        So the main problems are likely the endpoint URL and the credentials.
+        They need to check if the endpoint is correct for their resource and
+        ensure they're using the right API key from Azure, not a GitHub token.
+        Also, verify the model/deployment name in their Azure AI setup.
+
+        </think>
+
+
+        The code has several issues related to incorrect Azure configuration and
+        authentication. Here's the breakdown:
+
+
+        1. **Incorrect Endpoint**: Azure OpenAI endpoints typically follow the
+        format:
+           `https://{your-resource-name}.openai.azure.com/`
+
+        2. **Wrong Authentication**: Using a GitHub token (`GITHUB_TOKEN`) is
+        invalid. You need an Azure OpenAI API key.
+
+
+        3. **Model/Deployment Name**: The model should reference a deployment
+        name you created in Azure OpenAI Studio, not the original model
+        identifier.
+
+
+        Here's the corrected code:
+
+
+        ```python
+
+        from azure.ai.inference import ChatCompletionsClient
+
+        from azure.ai.inference.models import SystemMessage, UserMessage
+
+        from azure.core.credentials import AzureKeyCredential
+
+        import os
+
+
+        # Correct Azure OpenAI endpoint format
+
+        endpoint = "https://YOUR_RESOURCE_NAME.openai.azure.com/"
+
+        deployment_name = "YOUR_DEPLOYMENT_NAME"  # Your deployment name in
+        Azure
+
+        api_key = os.environ["AZURE_OPENAI_KEY"]  # Store your key in
+        environment variables
+
+
+        client = ChatCompletionsClient(
+            endpoint=endpoint,
+            credential=AzureKeyCredential(api_key),
+        )
+
+
+        response = client.complete(
+            messages=[
+                SystemMessage("You are a helpful assistant."),
+                UserMessage("What is the capital of France?"),
+            ],
+            temperature=1.0,
+            top_p=1.0,
+            model=deployment_name  # Use your deployment name here
+        )
+
+
+        print(response.choices[0].message.content)
+
+        ```
+
+
+        **Steps to make it work:**
+
+        1. Create an Azure OpenAI resource in Azure Portal
+
+        2. Deploy your model through Azure OpenAI Studio
+
+        3. Get your endpoint URL and API key from Azure Portal
+
+        4. Set environment variable:
+           ```bash
+           export AZURE_OPENAI_KEY="your-api-key-here"
+           ```
+        5. Replace `YOUR_RESOURCE_NAME` and `YOUR_DEPLOYMENT_NAME` with your
+        actual values
+
+
+        Remember to:
+
+        - Keep your API key secure
+
+        - Ensure you have proper Azure OpenAI service access
+
+        - Verify the deployment exists in your Azure resource
+
+        - Check regional availability for GPT-4 models
